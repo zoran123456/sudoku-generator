@@ -29,6 +29,9 @@ namespace SudokuGenerator
             {
                 Console.WriteLine("Failed to generate a solved Sudoku grid after multiple attempts.");
             }
+
+            Console.WriteLine("Solved by singles only? " +
+                SudokuSolver.SolveWithSingles(grid));
         }
 
         /// <summary>
