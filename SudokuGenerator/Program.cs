@@ -12,6 +12,10 @@ namespace SudokuGenerator
             {
                 Console.WriteLine($"Calibrated puzzle for level {diff} (needs {info.Hardest}):");
                 SudokuDrawer.Print(puzzle);
+
+                var solution = info.Solution;
+                SudokuDrawer.Print(solution);
+
             }
             else
             {

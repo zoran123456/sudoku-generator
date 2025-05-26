@@ -1,13 +1,13 @@
-using System;
-
 namespace SudokuGenerator
 {
     /// <summary>
-    /// Provides backtracking and solution counting for Sudoku puzzles.
+    /// Provides backtracking and solution counting for Sudoku puzzles,
+    /// with randomized choices to produce varied grids.
     /// </summary>
     public static class SudokuBacktrackingSolver
     {
         private const int MaxGenerationAttempts = 100;
+        private static readonly Random _rand = new Random();
 
         public static bool GenerateSolvedGrid(SudokuGrid grid)
         {
@@ -35,28 +35,49 @@ namespace SudokuGenerator
 
         private static bool SolveBacktrack(SudokuGrid g)
         {
-            if (!g.FindEmptyCell(out int r, out int c)) return true;
-            for (int n = 1; n <= 9; n++)
+            if (!g.FindEmptyCell(out int r, out int c))
+                return true;
+
+            // shuffle 1–9
+            foreach (int n in GetShuffledNumbers())
             {
                 if (!g.IsSafe(r, c, n)) continue;
                 g[r, c] = n;
                 if (SolveBacktrack(g)) return true;
                 g[r, c] = 0;
             }
+
             return false;
         }
 
         private static void CountSolutionsRecursive(SudokuGrid g, ref int cnt, int max)
         {
             if (cnt >= max) return;
-            if (!g.FindEmptyCell(out int r, out int c)) { cnt++; return; }
-            for (int n = 1; n <= 9; n++)
+            if (!g.FindEmptyCell(out int r, out int c))
+            {
+                cnt++;
+                return;
+            }
+
+            foreach (int n in GetShuffledNumbers())
             {
                 if (!g.IsSafe(r, c, n)) continue;
                 g[r, c] = n;
                 CountSolutionsRecursive(g, ref cnt, max);
                 g[r, c] = 0;
+                if (cnt >= max) return;
             }
+        }
+
+        /// <summary>
+        /// Returns the numbers 1–9 in a random order.
+        /// </summary>
+        private static IEnumerable<int> GetShuffledNumbers()
+        {
+            return Enumerable
+                .Range(1, 9)
+                .OrderBy(_ => _rand.Next())
+                .ToArray();
         }
     }
 }

@@ -83,13 +83,14 @@ namespace SudokuGenerator
             // build the result
             bool solved = !grid.FindEmptyCell(out _, out _);
             if (!track)
-                return new DifficultyAnalysis { Solved = solved, Hardest = StrategyLevel.None };
+                return new DifficultyAnalysis { Solved = solved, Hardest = StrategyLevel.None, Solution = grid };
 
             return new DifficultyAnalysis
             {
                 Solved = solved,
                 Hardest = hardest,
-                Used = used
+                Used = used,
+                Solution = grid
             };
         }
 
