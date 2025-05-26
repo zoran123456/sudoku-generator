@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-
-namespace SudokuGenerator
+﻿namespace SudokuGenerator
 {
     /// <summary>
     /// Provides logic-based solving for Sudoku puzzles.
@@ -143,7 +139,7 @@ namespace SudokuGenerator
             for (int r = 0; r < 9; r++)
                 for (int c = 0; c < 9; c++)
                     if (g[r, c] == 0)
-                        dict[(r, c)] = new HashSet<int>(Enumerable.Range(1, 9).Where(n => g.IsSafe(r, c, n)));
+                        dict[(r, c)] = [.. Enumerable.Range(1, 9).Where(n => g.IsSafe(r, c, n))];
             return dict;
         }
 

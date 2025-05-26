@@ -1,8 +1,6 @@
-﻿using System;
-
-namespace SudokuGenerator
+﻿namespace SudokuGenerator
 {
-    internal class Program
+    internal static class Program
     {
         static void Main(string[] args)
         {

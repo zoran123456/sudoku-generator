@@ -1,6 +1,3 @@
-using SudokuGenerator;
-using Xunit;
-
 namespace SudokuGenerator.Tests
 {
     public class SudokuSolverTests

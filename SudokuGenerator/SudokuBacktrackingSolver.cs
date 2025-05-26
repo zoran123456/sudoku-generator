@@ -7,7 +7,7 @@ namespace SudokuGenerator
     public static class SudokuBacktrackingSolver
     {
         private const int MaxGenerationAttempts = 100;
-        private static readonly Random _rand = new Random();
+        private static readonly Random _rand = new();
 
         public static bool GenerateSolvedGrid(SudokuGrid grid)
         {
@@ -72,12 +72,11 @@ namespace SudokuGenerator
         /// <summary>
         /// Returns the numbers 1–9 in a random order.
         /// </summary>
-        private static IEnumerable<int> GetShuffledNumbers()
+        private static int[] GetShuffledNumbers()
         {
-            return Enumerable
+            return [.. Enumerable
                 .Range(1, 9)
-                .OrderBy(_ => _rand.Next())
-                .ToArray();
+                .OrderBy(_ => _rand.Next())];
         }
     }
 }

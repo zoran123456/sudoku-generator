@@ -1,6 +1,3 @@
-using System;
-using System.Linq;
-
 namespace SudokuGenerator
 {
     /// <summary>
@@ -11,13 +8,11 @@ namespace SudokuGenerator
         private static readonly Random _random = new();
 
         public static bool TryGeneratePuzzle(int difficulty,
-                                     out SudokuGrid puzzle,
-                                     out DifficultyAnalysis analysis,
+                                     out SudokuGrid? puzzle,
+                                     out DifficultyAnalysis? analysis,
                                      int maxFullAttempts = 40,
                                      int maxDigAttempts = 10000)
         {
-            puzzle = null;
-            analysis = null;
             var targetLevel = TargetStrategyForDifficulty(difficulty);
 
             for (int fullTry = 0; fullTry < maxFullAttempts; fullTry++)

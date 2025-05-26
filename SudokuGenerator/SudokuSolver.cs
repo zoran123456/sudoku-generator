@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace SudokuGenerator
+﻿namespace SudokuGenerator
 {
     /// <summary>
     /// Facade for Sudoku puzzle generation and solving.

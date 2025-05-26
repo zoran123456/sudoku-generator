@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-
 namespace SudokuGenerator
 {
     /// <summary>
@@ -14,7 +12,7 @@ namespace SudokuGenerator
     {
         public bool Solved { get; init; }
         public StrategyLevel Hardest { get; init; }
-        public IReadOnlyCollection<StrategyLevel> Used { get; init; } = System.Array.Empty<StrategyLevel>();
+        public IReadOnlyCollection<StrategyLevel> Used { get; init; } = [];
         public SudokuGrid Solution { get; init; } = new SudokuGrid();
     }
 }

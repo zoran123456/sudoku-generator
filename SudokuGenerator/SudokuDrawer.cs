@@ -1,5 +1,3 @@
-using System;
-
 namespace SudokuGenerator
 {
     public static class SudokuDrawer
