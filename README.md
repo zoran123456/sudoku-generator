@@ -52,36 +52,25 @@ dotnet test
 Select difficulty level (1-Easy … 5-Hard): 3
 Calibrated puzzle for level 3 (needs Pointing):
 +---+---+---+
-|  1|76 |2  |
-|2 8|1  |   |
-| 69|  4|  3|
+|5 3  | 7   |
+|6   |1 9 5|
+| 9 8|     |
 +---+---+---+
-|   |   |  1|
-|  2|  6| 3 |
-|3  |21 |5 9|
+|8   | 6   3|
+|4   |8   1|
+|7   | 2   6|
 +---+---+---+
-|   |  2|   |
-|7 3| 8 |6  |
-|8  | 41|9  |
-+---+---+---+
-
-...solution grid follows
-
-+---+---+---+
-|431|769|285|
-|278|153|496|
-|569|824|173|
-+---+---+---+
-|695|437|821|
-|182|596|734|
-|347|218|569|
-+---+---+---+
-|954|672|318|
-|713|985|642|
-|826|341|957|
+| 6  |     2|
+|   4|1 9 8|
+|   7|   6 5|
 +---+---+---+
 
+...solution grid follows...
 ```
 
 ## License
 MIT License.
+
+---
+
+**Note:** This project was developed with heavy use of OpenAI (o4-mini-high), GitHub Copilot, and OpenAI Deep Research for code generation, design, and problem solving.
