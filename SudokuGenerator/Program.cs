@@ -12,11 +12,17 @@ namespace SudokuGenerator
         {
             int difficulty = PromptDifficulty();
 
-            // Initialize an empty Sudoku grid for now
+            // Generate a fully solved Sudoku grid
             var grid = new SudokuGrid();
-            SudokuSolver.Solve(grid); // Solve the grid to fill it with a valid Sudoku solution
-
-            SudokuDrawer.Print(grid);
+            if (SudokuSolver.GenerateSolvedGrid(grid))
+            {
+                Console.WriteLine("Sample solved Sudoku grid:");
+                SudokuDrawer.Print(grid);
+            }
+            else
+            {
+                Console.WriteLine("Failed to generate a solved Sudoku grid after multiple attempts.");
+            }
         }
 
         /// <summary>

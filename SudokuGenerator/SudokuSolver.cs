@@ -4,10 +4,14 @@ using System.Collections.Generic;
 namespace SudokuGenerator
 {
     /// <summary>
-    /// Provides static methods to solve Sudoku puzzles using backtracking.
+    /// Provides static methods to solve and generate Sudoku puzzles using backtracking.
     /// </summary>
     public static class SudokuSolver
     {
+        private static readonly Random _random = new();
+        private const int MaxGenerationAttempts = 100;
+        private const int MaxRecursionDepth = 10000;
+
         /// <summary>
         /// Attempts to solve the given Sudoku grid using backtracking.
         /// </summary>
@@ -61,6 +65,56 @@ namespace SudokuGenerator
                     CountSolutionsRecursive(grid, ref count, maxSolutions);
                     grid[row, col] = 0;
                 }
+            }
+        }
+
+        /// <summary>
+        /// Generates a fully solved Sudoku grid using randomized backtracking.
+        /// </summary>
+        /// <param name="grid">The SudokuGrid to fill.</param>
+        /// <returns>True if a solution is generated, false otherwise.</returns>
+        public static bool GenerateSolvedGrid(SudokuGrid grid)
+        {
+            for (int attempt = 0; attempt < MaxGenerationAttempts; attempt++)
+            {
+                // Clear grid before each attempt
+                for (int r = 0; r < 9; r++)
+                    for (int c = 0; c < 9; c++)
+                        grid[r, c] = 0;
+                if (GenerateSolvedGridRecursive(grid, 0))
+                    return true;
+            }
+            return false;
+        }
+
+        private static bool GenerateSolvedGridRecursive(SudokuGrid grid, int depth)
+        {
+            if (depth > MaxRecursionDepth)
+                return false;
+            if (!grid.FindEmptyCell(out int row, out int col))
+                return true;
+            var nums = new List<int>(9);
+            for (int i = 1; i <= 9; i++) nums.Add(i);
+            Shuffle(nums);
+            foreach (int num in nums)
+            {
+                if (grid.IsSafe(row, col, num))
+                {
+                    grid[row, col] = num;
+                    if (GenerateSolvedGridRecursive(grid, depth + 1))
+                        return true;
+                    grid[row, col] = 0;
+                }
+            }
+            return false;
+        }
+
+        private static void Shuffle(List<int> list)
+        {
+            for (int i = list.Count - 1; i > 0; i--)
+            {
+                int j = _random.Next(i + 1);
+                (list[i], list[j]) = (list[j], list[i]);
             }
         }
     }
