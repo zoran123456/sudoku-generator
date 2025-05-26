@@ -22,7 +22,7 @@
                 anyProgress = false;
 
                 // Singles first
-                if (ApplyNakedSingles(grid) | ApplyHiddenSingles(grid))
+                if (ApplyNakedSingles(grid) || ApplyHiddenSingles(grid))
                     anyProgress = true;
 
                 var candidates = ComputeCandidates(grid);
@@ -33,7 +33,7 @@
                     gridChanged = false;
 
                     // — NAKED/HIDDEN PAIRS & TRIPLES —
-                    if (ApplyNakedPairsTriples(candidates) | ApplyHiddenPairsTriples(candidates))
+                    if (ApplyNakedPairsTriples(candidates) || ApplyHiddenPairsTriples(candidates))
                     {
                         if (track && !used.Contains(StrategyLevel.PairsTriples))
                             used.Add(StrategyLevel.PairsTriples);
