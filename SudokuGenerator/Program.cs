@@ -14,7 +14,8 @@ namespace SudokuGenerator
 
             // Initialize an empty Sudoku grid for now
             var grid = new SudokuGrid();
-            
+            SudokuSolver.Solve(grid); // Solve the grid to fill it with a valid Sudoku solution
+
             SudokuDrawer.Print(grid);
         }
 
