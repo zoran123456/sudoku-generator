@@ -20,9 +20,9 @@ namespace SudokuGenerator
                 SudokuDrawer.Print(grid);
                 Console.WriteLine();
 
-                // Create a puzzle by removing clues
-                SudokuSolver.DigHoles(grid);
-                Console.WriteLine("Playable Sudoku puzzle (unique solution):");
+                // Create a puzzle by removing clues, using the selected difficulty
+                SudokuSolver.DigHoles(grid, difficulty);
+                Console.WriteLine($"Playable Sudoku puzzle (unique solution, difficulty {difficulty}):");
                 SudokuDrawer.Print(grid);
             }
             else

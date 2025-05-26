@@ -111,10 +111,26 @@ namespace SudokuGenerator
 
         /// <summary>
         /// Creates a playable Sudoku puzzle by removing clues from a solved grid while ensuring uniqueness.
+        /// The number of clues left is determined by the difficulty parameter (1-5).
         /// </summary>
         /// <param name="grid">A fully solved SudokuGrid. This grid will be modified in-place to become a puzzle.</param>
-        public static void DigHoles(SudokuGrid grid)
+        /// <param name="difficulty">Difficulty level (1-5). 1=Easy (more clues), 5=Hard (fewer clues).</param>
+        public static void DigHoles(SudokuGrid grid, int difficulty)
         {
+            // Difficulty to clue count mapping (approximate ranges)
+            // 1: 36-40 clues, 2: 32-35, 3: 28-31, 4: 22-27, 5: 17-21
+            var clueRanges = new (int min, int max)[]
+            {
+                (36, 40), // 1: Easy
+                (32, 35), // 2: Normal
+                (28, 31), // 3: Medium
+                (22, 27), // 4: Hard
+                (17, 21)  // 5: Expert
+            };
+            int minClues = clueRanges[Math.Clamp(difficulty-1, 0, 4)].min;
+            int maxClues = clueRanges[Math.Clamp(difficulty-1, 0, 4)].max;
+            int targetClues = _random.Next(minClues, maxClues+1);
+
             // Create a list of all cell positions
             var cells = new List<(int row, int col)>();
             for (int row = 0; row < 9; row++)
@@ -122,14 +138,21 @@ namespace SudokuGenerator
                     cells.Add((row, col));
             Shuffle(cells);
 
+            int cluesLeft = 81;
             foreach (var (row, col) in cells)
             {
+                if (cluesLeft <= targetClues)
+                    break;
                 int backup = grid[row, col];
                 grid[row, col] = 0;
                 // Check uniqueness after removal
                 if (CountSolutions(grid, 2) != 1)
                 {
                     grid[row, col] = backup; // Undo removal if not unique
+                }
+                else
+                {
+                    cluesLeft--;
                 }
             }
         }
