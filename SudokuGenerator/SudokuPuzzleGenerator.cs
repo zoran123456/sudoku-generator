@@ -51,7 +51,7 @@ namespace SudokuGenerator
             DigHoles(puzzle, difficulty);
             analysis = new DifficultyAnalysis
             {
-                Solved = SudokuLogicSolver.SolveWithLogic(CloneGrid(puzzle)),
+                Solved = SudokuLogicSolver.SolveWithLogic(CloneGrid(puzzle), out _),
                 Hardest = StrategyLevel.None,
                 Used = Array.Empty<StrategyLevel>()
             };

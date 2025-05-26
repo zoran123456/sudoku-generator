@@ -94,7 +94,13 @@ namespace SudokuGenerator
             };
         }
 
-        public static bool SolveWithLogic(SudokuGrid grid) => SolveWithLogic(grid, track: false).Solved;
+        public static bool SolveWithLogic(SudokuGrid grid, out SudokuGrid? solution)
+        {
+            var analysis = SolveWithLogic(grid, track: false);
+            solution = analysis.Solution;
+
+            return analysis.Solved;
+        }
 
         // --- Logical Techniques ---
         private static bool ApplyNakedSingles(SudokuGrid g)
