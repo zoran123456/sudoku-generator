@@ -1,10 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace SudokuGenerator
 {
     /// <summary>
-    /// Provides static methods to solve and generate Sudoku puzzles using backtracking and basic logical strategies.
+    /// Provides static methods to solve and generate Sudoku puzzles using backtracking and logical strategies.
     /// </summary>
     public static class SudokuSolver
     {
@@ -13,30 +14,22 @@ namespace SudokuGenerator
         private const int MaxRecursionDepth = 10000;
 
         #region Backtracking Solver
-        /// <summary>
-        /// Attempts to solve the given Sudoku grid using backtracking.
-        /// </summary>
         public static bool Solve(SudokuGrid grid)
         {
             if (!grid.FindEmptyCell(out int row, out int col))
-                return true; // No empty cell, puzzle solved
-
+                return true;
             for (int num = 1; num <= 9; num++)
             {
                 if (grid.IsSafe(row, col, num))
                 {
                     grid[row, col] = num;
-                    if (Solve(grid))
-                        return true;
-                    grid[row, col] = 0; // Backtrack
+                    if (Solve(grid)) return true;
+                    grid[row, col] = 0;
                 }
             }
             return false;
         }
 
-        /// <summary>
-        /// Counts the number of solutions for the given Sudoku grid, up to a specified maximum.
-        /// </summary>
         public static int CountSolutions(SudokuGrid grid, int maxSolutions = 2)
         {
             int count = 0;
@@ -46,8 +39,7 @@ namespace SudokuGenerator
 
         private static void CountSolutionsRecursive(SudokuGrid grid, ref int count, int maxSolutions)
         {
-            if (count >= maxSolutions)
-                return;
+            if (count >= maxSolutions) return;
             if (!grid.FindEmptyCell(out int row, out int col))
             {
                 count++;
@@ -65,209 +57,315 @@ namespace SudokuGenerator
         }
         #endregion
 
-        #region Logical Solver (Singles)
-        /// <summary>
-        /// Applies naked and hidden singles iteratively until no more placements are possible.
-        /// Returns true if the grid is completely filled using only singles.
-        /// </summary>
-        public static bool SolveWithSingles(SudokuGrid grid)
+        #region Logical Solver (Singles, Pairs, Triples, Pointing)
+        public static bool SolveWithLogic(SudokuGrid grid)
         {
             bool progress;
+            // Step 1: Singles
             do
             {
                 progress = false;
                 if (ApplyNakedSingles(grid)) progress = true;
                 if (ApplyHiddenSingles(grid)) progress = true;
-            }
-            while (progress);
+            } while (progress);
 
-            // Check if solved
+            // Step 2: Candidate eliminations
+            var candidates = ComputeAllCandidates(grid);
+            do
+            {
+                progress = false;
+                if (ApplyNakedPairsTriples(candidates)) progress = true;
+                if (ApplyHiddenPairsTriples(candidates)) progress = true;
+                if (ApplyPointingPairs(candidates)) progress = true;
+
+                // place any new singles
+                var singles = candidates.Where(kv => kv.Value.Count == 1)
+                                        .Select(kv => (kv.Key.row, kv.Key.col, kv.Value.First()))
+                                        .ToList();
+                foreach (var (r, c, val) in singles)
+                {
+                    grid[r, c] = val;
+                    candidates.Remove((r, c));
+                    progress = true;
+                }
+
+                if (progress)
+                    candidates = ComputeAllCandidates(grid);
+
+            } while (progress);
+
             return !grid.FindEmptyCell(out _, out _);
         }
 
-        // Finds cells with only one candidate and fills them.
+        // Naked Singles
         private static bool ApplyNakedSingles(SudokuGrid grid)
         {
-            bool anyPlaced = false;
-            for (int row = 0; row < 9; row++)
+            bool placed = false;
+            for (int r = 0; r < 9; r++)
             {
-                for (int col = 0; col < 9; col++)
+                for (int c = 0; c < 9; c++)
                 {
-                    if (grid[row, col] != 0)
-                        continue;
-
-                    var candidates = new List<int>();
-                    for (int num = 1; num <= 9; num++)
+                    if (grid[r, c] != 0) continue;
+                    var cand = Enumerable.Range(1, 9).Where(n => grid.IsSafe(r, c, n)).ToList();
+                    if (cand.Count == 1)
                     {
-                        if (grid.IsSafe(row, col, num))
-                            candidates.Add(num);
-                    }
-
-                    if (candidates.Count == 1)
-                    {
-                        grid[row, col] = candidates[0];
-                        anyPlaced = true;
+                        grid[r, c] = cand[0];
+                        placed = true;
                     }
                 }
             }
-            return anyPlaced;
+            return placed;
         }
 
-        // Finds hidden singles in each unit and fills them.
+        // Hidden Singles
         private static bool ApplyHiddenSingles(SudokuGrid grid)
         {
-            bool anyPlaced = false;
-
-            // Check rows
-            for (int row = 0; row < 9; row++)
-            {
-                anyPlaced |= FindAndPlaceHiddenSingles(grid, GetRowCells(row));
-            }
-            // Check columns
-            for (int col = 0; col < 9; col++)
-            {
-                anyPlaced |= FindAndPlaceHiddenSingles(grid, GetColumnCells(col));
-            }
-            // Check 3x3 blocks
+            bool placed = false;
+            for (int r = 0; r < 9; r++)
+                placed |= FindAndPlaceHiddenSingle(grid, GetRowCells(r));
+            for (int c = 0; c < 9; c++)
+                placed |= FindAndPlaceHiddenSingle(grid, GetColumnCells(c));
             for (int br = 0; br < 3; br++)
             {
                 for (int bc = 0; bc < 3; bc++)
-                {
-                    anyPlaced |= FindAndPlaceHiddenSingles(grid, GetBlockCells(br * 3, bc * 3));
-                }
+                    placed |= FindAndPlaceHiddenSingle(grid, GetBlockCells(br * 3, bc * 3));
             }
-
-            return anyPlaced;
+            return placed;
         }
 
-        // Helper to find and place hidden singles in a given unit of cells
-        private static bool FindAndPlaceHiddenSingles(SudokuGrid grid, List<(int row, int col)> cells)
+        private static bool FindAndPlaceHiddenSingle(SudokuGrid grid, List<(int row, int col)> cells)
         {
             bool placed = false;
-            for (int num = 1; num <= 9; num++)
+            for (int n = 1; n <= 9; n++)
             {
-                int count = 0;
-                (int row, int col) last = default;
-                foreach (var (r, c) in cells)
+                var possible = cells.Where(rc => grid[rc.row, rc.col] == 0 && grid.IsSafe(rc.row, rc.col, n)).ToList();
+                if (possible.Count == 1)
                 {
-                    if (grid[r, c] == 0 && grid.IsSafe(r, c, num))
-                    {
-                        count++;
-                        last = (r, c);
-                    }
-                }
-                if (count == 1)
-                {
-                    grid[last.row, last.col] = num;
+                    grid[possible[0].row, possible[0].col] = n;
                     placed = true;
                 }
             }
             return placed;
         }
 
-        // Helpers to list cells in units
+        // Unit cell helpers
         private static List<(int row, int col)> GetRowCells(int row)
         {
-            var cells = new List<(int, int)>();
-            for (int c = 0; c < 9; c++) cells.Add((row, c));
+            var cells = new List<(int row, int col)>();
+            for (int c = 0; c < 9; c++)
+                cells.Add((row, c));
             return cells;
         }
 
         private static List<(int row, int col)> GetColumnCells(int col)
         {
-            var cells = new List<(int, int)>();
-            for (int r = 0; r < 9; r++) cells.Add((r, col));
+            var cells = new List<(int row, int col)>();
+            for (int r = 0; r < 9; r++)
+                cells.Add((r, col));
             return cells;
         }
 
         private static List<(int row, int col)> GetBlockCells(int startRow, int startCol)
         {
-            var cells = new List<(int, int)>();
+            var cells = new List<(int row, int col)>();
             for (int r = startRow; r < startRow + 3; r++)
                 for (int c = startCol; c < startCol + 3; c++)
                     cells.Add((r, c));
             return cells;
         }
+
+        // Compute all candidates
+        private static Dictionary<(int row, int col), HashSet<int>> ComputeAllCandidates(SudokuGrid grid)
+        {
+            var dict = new Dictionary<(int, int), HashSet<int>>();
+            for (int r = 0; r < 9; r++)
+            {
+                for (int c = 0; c < 9; c++)
+                {
+                    if (grid[r, c] == 0)
+                    {
+                        var set = new HashSet<int>(Enumerable.Range(1, 9).Where(n => grid.IsSafe(r, c, n)));
+                        dict[(r, c)] = set;
+                    }
+                }
+            }
+            return dict;
+        }
+
+        // Naked Pairs & Triples
+        private static bool ApplyNakedPairsTriples(Dictionary<(int row, int col), HashSet<int>> candidates)
+        {
+            bool changed = false;
+            foreach (var unit in GetAllUnits(candidates.Keys))
+            {
+                for (int size = 2; size <= 3; size++)
+                {
+                    var groups = unit.Where(cell => candidates[cell].Count == size)
+                                     .GroupBy(cell => string.Join(',', candidates[cell].OrderBy(x => x)));
+                    foreach (var grp in groups)
+                    {
+                        var cells = grp.ToList();
+                        if (cells.Count != size) continue;
+                        var nums = candidates[cells[0]].ToHashSet();
+                        foreach (var other in unit.Except(cells))
+                        {
+                            if (candidates[other].Overlaps(nums))
+                            {
+                                candidates[other].ExceptWith(nums);
+                                changed = true;
+                            }
+                        }
+                    }
+                }
+            }
+            return changed;
+        }
+
+        // Hidden Pairs & Triples
+        private static bool ApplyHiddenPairsTriples(Dictionary<(int row, int col), HashSet<int>> candidates)
+        {
+            bool changed = false;
+            var allNums = Enumerable.Range(1, 9).ToList();
+            foreach (var unit in GetAllUnits(candidates.Keys))
+            {
+                for (int size = 2; size <= 3; size++)
+                {
+                    foreach (var combo in GetCombinations(allNums, size))
+                    {
+                        var cells = unit.Where(cell => candidates[cell].Overlaps(combo)).ToList();
+                        if (cells.Count != size) continue;
+                        if (!combo.All(n => candidates.Keys.Count(k => candidates[k].Contains(n) && unit.Contains(k)) == size)) continue;
+                        foreach (var cell in cells)
+                        {
+                            if (!candidates[cell].SetEquals(combo))
+                            {
+                                candidates[cell].IntersectWith(combo);
+                                changed = true;
+                            }
+                        }
+                    }
+                }
+            }
+            return changed;
+        }
+
+        // Pointing Pairs/Triples (Box-Line Reduction)
+        private static bool ApplyPointingPairs(Dictionary<(int row, int col), HashSet<int>> candidates)
+        {
+            bool changed = false;
+            for (int br = 0; br < 3; br++)
+            {
+                for (int bc = 0; bc < 3; bc++)
+                {
+                    var blockCells = candidates.Keys.Where(k => k.row / 3 == br && k.col / 3 == bc).ToList();
+                    for (int num = 1; num <= 9; num++)
+                    {
+                        var relevant = blockCells.Where(k => candidates[k].Contains(num)).ToList();
+                        if (relevant.Count < 2 || relevant.Count > 3) continue;
+                        if (relevant.All(k => k.row == relevant[0].row))
+                        {
+                            int row = relevant[0].row;
+                            foreach (var cell in candidates.Keys.Where(k => k.row == row && k.col / 3 != bc))
+                                if (candidates[cell].Remove(num)) changed = true;
+                        }
+                        if (relevant.All(k => k.col == relevant[0].col))
+                        {
+                            int col = relevant[0].col;
+                            foreach (var cell in candidates.Keys.Where(k => k.col == col && k.row / 3 != br))
+                                if (candidates[cell].Remove(num)) changed = true;
+                        }
+                    }
+                }
+            }
+            return changed;
+        }
+
+        // Helpers
+        private static IEnumerable<List<(int row, int col)>> GetAllUnits(IEnumerable<(int row, int col)> keys)
+        {
+            // rows
+            for (int r = 0; r < 9; r++)
+                yield return keys.Where(k => k.row == r).ToList();
+            // cols
+            for (int c = 0; c < 9; c++)
+                yield return keys.Where(k => k.col == c).ToList();
+            // boxes
+            for (int br = 0; br < 3; br++)
+            {
+                for (int bc = 0; bc < 3; bc++)
+                    yield return keys.Where(k => k.row / 3 == br && k.col / 3 == bc).ToList();
+            }
+        }
+
+        private static IEnumerable<HashSet<int>> GetCombinations(List<int> nums, int size)
+        {
+            if (size == 0)
+            {
+                yield return new HashSet<int>();
+                yield break;
+            }
+            for (int i = 0; i <= nums.Count - size; i++)
+            {
+                var head = nums[i];
+                foreach (var tail in GetCombinations(nums.Skip(i + 1).ToList(), size - 1))
+                {
+                    tail.Add(head);
+                    yield return tail;
+                }
+            }
+        }
         #endregion
 
         #region Generator
-        /// <summary>
-        /// Generates a fully solved Sudoku grid using randomized backtracking.
-        /// </summary>
         public static bool GenerateSolvedGrid(SudokuGrid grid)
         {
             for (int attempt = 0; attempt < MaxGenerationAttempts; attempt++)
             {
-                // Clear grid before each attempt
                 for (int r = 0; r < 9; r++)
                     for (int c = 0; c < 9; c++)
                         grid[r, c] = 0;
-                if (GenerateSolvedGridRecursive(grid, 0))
-                    return true;
+                if (GenerateSolvedGridRecursive(grid, 0)) return true;
             }
             return false;
         }
 
         private static bool GenerateSolvedGridRecursive(SudokuGrid grid, int depth)
         {
-            if (depth > MaxRecursionDepth)
-                return false;
-            if (!grid.FindEmptyCell(out int row, out int col))
-                return true;
-            var nums = new List<int>(9);
-            for (int i = 1; i <= 9; i++) nums.Add(i);
+            if (depth > MaxRecursionDepth) return false;
+            if (!grid.FindEmptyCell(out int row, out int col)) return true;
+            var nums = Enumerable.Range(1, 9).ToList();
             Shuffle(nums);
-            foreach (int num in nums)
+            foreach (var num in nums)
             {
                 if (grid.IsSafe(row, col, num))
                 {
                     grid[row, col] = num;
-                    if (GenerateSolvedGridRecursive(grid, depth + 1))
-                        return true;
+                    if (GenerateSolvedGridRecursive(grid, depth + 1)) return true;
                     grid[row, col] = 0;
                 }
             }
             return false;
         }
 
-        /// <summary>
-        /// Creates a playable Sudoku puzzle by removing clues from a solved grid while ensuring uniqueness.
-        /// </summary>
         public static void DigHoles(SudokuGrid grid, int difficulty)
         {
             var clueRanges = new (int min, int max)[]
             {
-                (36, 40), // Easy
-                (32, 35), // Normal
-                (28, 31), // Medium
-                (22, 27), // Hard
-                (17, 21)  // Expert
+                (36,40),(32,35),(28,31),(22,27),(17,21)
             };
             int minClues = clueRanges[Math.Clamp(difficulty - 1, 0, 4)].min;
             int maxClues = clueRanges[Math.Clamp(difficulty - 1, 0, 4)].max;
-            int targetClues = _random.Next(minClues, maxClues + 1);
-
+            int target = _random.Next(minClues, maxClues + 1);
             var cells = new List<(int row, int col)>();
-            for (int row = 0; row < 9; row++)
-                for (int col = 0; col < 9; col++)
-                    cells.Add((row, col));
+            for (int r = 0; r < 9; r++) for (int c = 0; c < 9; c++) cells.Add((r, c));
             Shuffle(cells);
-
             int cluesLeft = 81;
-            foreach (var (row, col) in cells)
+            foreach (var (r, c) in cells)
             {
-                if (cluesLeft <= targetClues)
-                    break;
-                int backup = grid[row, col];
-                grid[row, col] = 0;
-                if (CountSolutions(grid, 2) != 1)
-                {
-                    grid[row, col] = backup;
-                }
-                else
-                {
-                    cluesLeft--;
-                }
+                if (cluesLeft <= target) break;
+                int backup = grid[r, c]; grid[r, c] = 0;
+                if (CountSolutions(grid, 2) != 1) grid[r, c] = backup;
+                else cluesLeft--;
             }
         }
         #endregion
