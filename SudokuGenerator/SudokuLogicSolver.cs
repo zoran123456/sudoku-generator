@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -11,53 +11,79 @@ namespace SudokuGenerator
     {
         public static DifficultyAnalysis SolveWithLogic(SudokuGrid grid, bool track)
         {
-            bool usedPairs = false, usedPointing = false, usedX = false;
+            // prepare tracking containers up‐front
+            var used = new List<StrategyLevel> { StrategyLevel.Singles };
+            var hardest = StrategyLevel.Singles;
+
             bool anyProgress;
+            int safety = 0;    // ultimate bail‐out guard
+
             do
             {
+                if (++safety > 100_000)         // just in case
+                    break;
+
                 anyProgress = false;
+
+                // Singles first
                 if (ApplyNakedSingles(grid) | ApplyHiddenSingles(grid))
                     anyProgress = true;
 
                 var candidates = ComputeCandidates(grid);
-                bool inner;
+                bool gridChanged;
+
                 do
                 {
-                    inner = false;
-                    if ((ApplyNakedPairsTriples(candidates) | ApplyHiddenPairsTriples(candidates)))
-                    { inner = true; usedPairs = true; }
-                    if (ApplyPointingPairs(candidates))
-                    { inner = true; usedPointing = true; }
-                    if (ApplyXWing(candidates))
-                    { inner = true; usedX = true; }
+                    gridChanged = false;
 
-                    // fill singles
-                    var singles = candidates.Where(kv => kv.Value.Count == 1)
-                                             .Select(kv => (kv.Key.row, kv.Key.col, kv.Value.First()))
-                                             .ToList();
-                    foreach (var (r, c, v) in singles)
+                    // — NAKED/HIDDEN PAIRS & TRIPLES —
+                    if (ApplyNakedPairsTriples(candidates) | ApplyHiddenPairsTriples(candidates))
+                    {
+                        if (track && !used.Contains(StrategyLevel.PairsTriples))
+                            used.Add(StrategyLevel.PairsTriples);
+                        hardest = StrategyLevel.PairsTriples;
+                    }
+
+                    // — POINTING PAIRS —
+                    if (ApplyPointingPairs(candidates))
+                    {
+                        if (track && !used.Contains(StrategyLevel.Pointing))
+                            used.Add(StrategyLevel.Pointing);
+                        hardest = StrategyLevel.Pointing;
+                    }
+
+                    // — X‐WING —
+                    if (ApplyXWing(candidates))
+                    {
+                        if (track && !used.Contains(StrategyLevel.XWing))
+                            used.Add(StrategyLevel.XWing);
+                        hardest = StrategyLevel.XWing;
+                    }
+
+                    // Promote any new singles
+                    foreach (var (r, c, v) in candidates
+                                .Where(kv => kv.Value.Count == 1)
+                                .Select(kv => (kv.Key.row, kv.Key.col, kv.Value.First()))
+                                .ToList())
                     {
                         grid[r, c] = v;
                         candidates.Remove((r, c));
-                        inner = true;
+                        gridChanged = true;
                     }
-                    if (inner)
-                        candidates = ComputeCandidates(grid);
-                    anyProgress |= inner;
-                }
-                while (inner);
-            }
-            while (anyProgress);
 
+                    if (gridChanged)
+                        candidates = ComputeCandidates(grid);
+
+                } while (gridChanged);
+
+                anyProgress |= gridChanged;
+
+            } while (anyProgress);
+
+            // build the result
             bool solved = !grid.FindEmptyCell(out _, out _);
             if (!track)
                 return new DifficultyAnalysis { Solved = solved, Hardest = StrategyLevel.None };
-
-            var used = new List<StrategyLevel> { StrategyLevel.Singles };
-            var hardest = StrategyLevel.Singles;
-            if (usedPairs) { used.Add(StrategyLevel.PairsTriples); hardest = StrategyLevel.PairsTriples; }
-            if (usedPointing) { used.Add(StrategyLevel.Pointing); hardest = StrategyLevel.Pointing; }
-            if (usedX) { used.Add(StrategyLevel.XWing); hardest = StrategyLevel.XWing; }
 
             return new DifficultyAnalysis
             {
@@ -168,74 +194,117 @@ namespace SudokuGenerator
         private static bool ApplyPointingPairs(Dictionary<(int row, int col), HashSet<int>> cand)
         {
             bool changed = false;
-            foreach (var unit in SudokuUnitHelper.GetAllUnits().Where(u => u.All(p => cand.ContainsKey(p))))
+
+            // get only the 3×3 blocks
+            var blocks = SudokuUnitHelper.GetAllUnits()
+                         .Where(u =>
+                             u.Select(p => (p.row / 3, p.col / 3))
+                              .Distinct().Count() == 1
+                         );
+
+            foreach (var block in blocks)
             {
-                var emptyCells = unit.ToList();
+                // precompute for fast lookups
+                var blockSet = new HashSet<(int row, int col)>(block);
+
                 for (int n = 1; n <= 9; n++)
                 {
-                    var pos = emptyCells.Where(p => cand[p].Contains(n)).ToList();
-                    if (pos.Count < 2 || pos.Count > 3) continue;
+                    // which empty cells in this block can be n?
+                    var pos = block
+                        .Where(p => cand.TryGetValue(p, out var s) && s.Contains(n))
+                        .ToList();
 
+                    if (pos.Count < 2 || pos.Count > 3)
+                        continue;
+
+                    // all in same row → eliminate n from that row outside this block
                     if (pos.All(p => p.row == pos[0].row))
                     {
-                        foreach (var col in Enumerable.Range(0, 9))
+                        int row = pos[0].row;
+                        for (int col = 0; col < 9; col++)
                         {
-                            var key = (pos[0].row, col);
-                            if (emptyCells.Contains(key) || cand.ContainsKey(key) && cand[key].Remove(n))
+                            var key = (row, col);
+                            if (!blockSet.Contains(key) &&
+                                cand.TryGetValue(key, out var s) &&
+                                s.Remove(n))
+                            {
                                 changed = true;
+                            }
                         }
                     }
+
+                    // all in same col → eliminate n from that column outside this block
                     if (pos.All(p => p.col == pos[0].col))
                     {
-                        foreach (var row in Enumerable.Range(0, 9))
+                        int col = pos[0].col;
+                        for (int row = 0; row < 9; row++)
                         {
-                            var key = (row, pos[0].col);
-                            if (emptyCells.Contains(key) || cand.ContainsKey(key) && cand[key].Remove(n))
+                            var key = (row, col);
+                            if (!blockSet.Contains(key) &&
+                                cand.TryGetValue(key, out var s) &&
+                                s.Remove(n))
+                            {
                                 changed = true;
+                            }
                         }
                     }
                 }
             }
+
             return changed;
         }
         private static bool ApplyXWing(Dictionary<(int row, int col), HashSet<int>> cand)
         {
             bool changed = false;
-            for (int mode = 0; mode < 2; mode++)
+
+            for (int mode = 0; mode < 2; mode++)  // 0 = rows→cols, 1 = cols→rows
             {
+                // collect lines that have exactly two candidates for each digit
                 for (int n = 1; n <= 9; n++)
                 {
                     var lines = new Dictionary<int, List<int>>();
                     for (int i = 0; i < 9; i++)
                     {
-                        var positions = Enumerable.Range(0, 9)
+                        var pos = Enumerable.Range(0, 9)
                             .Where(j =>
                             {
                                 var key = mode == 0 ? (i, j) : (j, i);
                                 return cand.TryGetValue(key, out var s) && s.Contains(n);
                             })
                             .ToList();
-                        if (positions.Count == 2) lines[i] = positions;
+                        if (pos.Count == 2)
+                            lines[i] = pos;
                     }
 
-                    foreach (var (l1, p1) in lines)
-                        foreach (var (l2, p2) in lines)
+                    if (lines.Count < 2) continue;
+
+                    // group by the two‐column (or two‐row) positions
+                    var groups = lines
+                        .GroupBy(kv => string.Join(',', kv.Value))
+                        .Where(g => g.Count() == 2);
+
+                    foreach (var grp in groups)
+                    {
+                        var lineIndices = grp.Select(kv => kv.Key).ToList();
+                        var fixedIndices = grp.First().Value; // the shared columns (or rows)
+
+                        // eliminate n from the rest of the grid
+                        foreach (var otherLine in Enumerable.Range(0, 9).Except(lineIndices))
                         {
-                            if (l2 <= l1) continue;
-                            if (p1[0] == p2[0] && p1[1] == p2[1])
+                            foreach (var fixedIdx in fixedIndices)
                             {
-                                for (int k = 0; k < 9; k++)
-                                {
-                                    if (k == l1 || k == l2) continue;
-                                    var keyA = mode == 0 ? (k, p1[0]) : (p1[0], k);
-                                    var keyB = mode == 0 ? (k, p1[1]) : (p1[1], k);
-                                    if (cand.TryGetValue(keyA, out var sA) && sA.Remove(n)) changed = true;
-                                    if (cand.TryGetValue(keyB, out var sB) && sB.Remove(n)) changed = true;
-                                }
+                                var key = mode == 0
+                                    ? (otherLine, fixedIdx)
+                                    : (fixedIdx, otherLine);
+
+                                if (cand.TryGetValue(key, out var s) && s.Remove(n))
+                                    changed = true;
                             }
                         }
+                    }
                 }
             }
+
             return changed;
         }
     }

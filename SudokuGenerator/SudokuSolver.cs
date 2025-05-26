@@ -10,7 +10,7 @@ namespace SudokuGenerator
         public static bool TryGeneratePuzzle(int difficulty,
                                              out SudokuGrid puzzle,
                                              out DifficultyAnalysis analysis,
-                                             int maxAttempts = 40)
+                                             int maxAttempts = 10000)
             => SudokuPuzzleGenerator.TryGeneratePuzzle(difficulty, out puzzle, out analysis, maxAttempts);
 
         public static bool SolveWithLogic(SudokuGrid grid)

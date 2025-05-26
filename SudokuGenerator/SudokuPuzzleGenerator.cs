@@ -11,36 +11,41 @@ namespace SudokuGenerator
         private static readonly Random _random = new();
 
         public static bool TryGeneratePuzzle(int difficulty,
-                                             out SudokuGrid puzzle,
-                                             out DifficultyAnalysis analysis,
-                                             int maxAttempts = 40)
+                                     out SudokuGrid puzzle,
+                                     out DifficultyAnalysis analysis,
+                                     int maxFullAttempts = 40,
+                                     int maxDigAttempts = 10000)
         {
             puzzle = null;
             analysis = null;
             var targetLevel = TargetStrategyForDifficulty(difficulty);
 
-            for (int i = 0; i < maxAttempts; i++)
+            for (int fullTry = 0; fullTry < maxFullAttempts; fullTry++)
             {
-                // 1. generate a fully solved grid
+                // 1) build a fully solved grid once
                 var full = new SudokuGrid();
                 if (!SudokuBacktrackingSolver.GenerateSolvedGrid(full))
                     continue;
 
-                // 2. dig holes based on difficulty
-                var candidate = CloneGrid(full);
-                DigHoles(candidate, difficulty);
+                // 2) try many digs on that same solution
+                for (int digTry = 0; digTry < maxDigAttempts; digTry++)
+                {
+                    var candidate = CloneGrid(full);
+                    DigHoles(candidate, difficulty);
 
-                // 3. analyze
-                var clone = CloneGrid(candidate);
-                var result = SudokuLogicSolver.SolveWithLogic(clone, track: true);
-                if (!result.Solved) continue;
-                if (result.Hardest != targetLevel) continue;
-
-                puzzle = candidate;
-                analysis = result;
-                return true;
+                    // 3) analyze
+                    var result = SudokuLogicSolver.SolveWithLogic(CloneGrid(candidate), track: true);
+                    if (result.Solved && result.Hardest == targetLevel)
+                    {
+                        puzzle = candidate;
+                        analysis = result;
+                        return true;
+                    }
+                }
+                // if we got here, none of the maxDigAttempts on this 'full' worked — try a new solution
             }
-            // fallback: generate any puzzle
+
+            // fallback
             puzzle = new SudokuGrid();
             SudokuBacktrackingSolver.GenerateSolvedGrid(puzzle);
             DigHoles(puzzle, difficulty);
@@ -48,7 +53,7 @@ namespace SudokuGenerator
             {
                 Solved = SudokuLogicSolver.SolveWithLogic(CloneGrid(puzzle)),
                 Hardest = StrategyLevel.None,
-                Used = System.Array.Empty<StrategyLevel>()
+                Used = Array.Empty<StrategyLevel>()
             };
             return false;
         }
