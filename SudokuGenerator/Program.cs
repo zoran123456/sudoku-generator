@@ -18,6 +18,12 @@ namespace SudokuGenerator
             {
                 Console.WriteLine("Sample solved Sudoku grid:");
                 SudokuDrawer.Print(grid);
+                Console.WriteLine();
+
+                // Create a puzzle by removing clues
+                SudokuSolver.DigHoles(grid);
+                Console.WriteLine("Playable Sudoku puzzle (unique solution):");
+                SudokuDrawer.Print(grid);
             }
             else
             {

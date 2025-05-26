@@ -109,7 +109,32 @@ namespace SudokuGenerator
             return false;
         }
 
-        private static void Shuffle(List<int> list)
+        /// <summary>
+        /// Creates a playable Sudoku puzzle by removing clues from a solved grid while ensuring uniqueness.
+        /// </summary>
+        /// <param name="grid">A fully solved SudokuGrid. This grid will be modified in-place to become a puzzle.</param>
+        public static void DigHoles(SudokuGrid grid)
+        {
+            // Create a list of all cell positions
+            var cells = new List<(int row, int col)>();
+            for (int row = 0; row < 9; row++)
+                for (int col = 0; col < 9; col++)
+                    cells.Add((row, col));
+            Shuffle(cells);
+
+            foreach (var (row, col) in cells)
+            {
+                int backup = grid[row, col];
+                grid[row, col] = 0;
+                // Check uniqueness after removal
+                if (CountSolutions(grid, 2) != 1)
+                {
+                    grid[row, col] = backup; // Undo removal if not unique
+                }
+            }
+        }
+
+        private static void Shuffle<T>(IList<T> list)
         {
             for (int i = list.Count - 1; i > 0; i--)
             {
